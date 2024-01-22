@@ -1,0 +1,10 @@
+import requests
+import json
+from openpyxl import load_workbook
+import pandas as pd
+from statistics import mode, median
+import matplotlib.pyplot as plt
+import os
+import numpy as np
+import statistics
+from Main import mostrar_menu

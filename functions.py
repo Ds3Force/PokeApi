@@ -1,0 +1,413 @@
+import requests
+import json
+from openpyxl import load_workbook
+import pandas as pd
+from statistics import mode, median
+import matplotlib.pyplot as plt
+import os
+import numpy as np
+import statistics
+from Main import mostrar_menu
+
+
+def listar_pokemon():
+    try:
+        response = requests.get("https://pokeapi.co/api/v2/pokemon?limit=1010")
+        pokemon_data = response.json()
+
+        print("\n--- Lista de todos los Pokémon ---")
+        for pokemon in pokemon_data['results']:
+            print(f"{pokemon['name'].capitalize()} - #{pokemon['url'].split('/')[-2]}")
+
+    except requests.exceptions.RequestException:
+        print("\n No hay conexión a internet para consultar la API.")
+
+        while True:
+            c_t_e = input("¿Quieres consultar desde tus pokemones guardados?")
+            if c_t_e.lower() == "si":
+                print("1 - Archivo de Texto")
+                print("2 - Archivo Excel")
+                print("0 - Salir")
+                #seleccionar donde txt o excel para consultar archivos locales
+                opcion = input("Desde donde quieres consultar tus archivos:")
+                if opcion == "1":
+                    # Enumerar archivos de texto
+                    archivos_txt = [archivo for archivo in os.listdir('.') if archivo.endswith('.txt')]
+                    if archivos_txt:
+                        print("\nArchivos de Texto Disponibles:")
+                        for archivo in archivos_txt:
+                            print(archivo)                                             
+                    else:
+                        print("\nNo hay archivos de texto disponibles.")
+                    
+                    nombre_archivo = input("Ingresa el nombre del archivo: ")
+                    nombre_archivo += ".txt"
+                    cargar_desde_txt(nombre_archivo)
+                    calcular_estadisticas_multiples_pokemon()
+
+                elif opcion == "2":
+                    # Enumerar archivos de Excel
+                    archivos_excel = [archivo for archivo in os.listdir('.') if archivo.endswith('.xlsx')]
+                    if archivos_excel:
+                        print("\nArchivos de Excel Disponibles:")
+                        for archivo in archivos_excel:
+                            print(archivo)
+                    else:
+                        print("\nNo hay archivos de Excel disponibles.")
+
+                    nombre_archivo = input("Ingresa el nombre del archivo: ")
+                    nombre_archivo += ".xlsx"
+                    cargar_desde_excel(nombre_archivo)
+                    #couando la opcion es 0 regrsa al menu
+                elif opcion == "0":
+                    mostrar_menu()
+                    break
+                else:
+                    #repite la pregunta para una opcion valida
+                    print("Ingrese una opción válida.")
+            elif c_t_e.lower() == "no":
+                break
+            else:
+                print("Ingrese una opción válida.")
+
+def consultar_pokemon():
+    pokemon_name = input("\nIngrese el nombre del Pokémon que desea consultar: ")
+
+    response = requests.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon_name}")
+
+    if response.status_code == 200:
+        try:
+            pokemon_data = response.json()
+
+            print(f"\n--- Información del Pokémon {pokemon_data['name'].capitalize()} ---")
+            print(f"ID: {pokemon_data['id']}")
+            
+            print(f"Tipo(s):")
+            for t in pokemon_data['types']:
+                print(f"\t{t['type']['name'].capitalize()}")
+            
+            print(f"Habilidades:")
+            for h in pokemon_data['abilities']:
+                print(f"\t{h['ability']['name'].capitalize()}")
+            
+            print(f"Estadísticas:")
+            for s in pokemon_data['stats']:
+                print(f"\t{s['stat']['name'].capitalize()}: {s['base_stat']}")
+            
+            guardar_menu(pokemon_data)
+        except KeyError:
+            print(f"No se encontró el Pokémon {pokemon_name.capitalize()} o los datos están incompletos.")
+    else:
+        print(f"No se encontró el Pokémon {pokemon_name.capitalize()} o se produjo un error en la solicitud.")
+
+def comparar_pokemon():
+    num_pokemon = int(input("\nIngrese el número de Pokémon que desea comparar: "))
+
+    if num_pokemon < 2:
+            print("Debe ingresar al menos 2 Pokémon para comparar.")
+            return
+
+    pokemon_list = []
+    for i in range(num_pokemon):
+            pokemon_name = input(f"Ingrese el nombre del Pokémon {i + 1}: ")
+            pokemon_list.append(pokemon_name)
+
+    for pokemon_name in pokemon_list:
+            consultar_pokemon_api(pokemon_name)
+
+def consultar_pokemon_api(pokemon_name):
+    response = requests.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon_name}")
+
+    if response.status_code == 200:
+        try:
+            pokemon_data = response.json()
+
+            print(f"\n--- Información del Pokémon {pokemon_data['name'].capitalize()} ---")
+            print(f"ID: {pokemon_data['id']}")
+            
+            print(f"Tipo(s):")
+            for t in pokemon_data['types']:
+                print(f"\t{t['type']['name'].capitalize()}")
+            
+            print(f"Habilidades:")
+            for h in pokemon_data['abilities']:
+                print(f"\t{h['ability']['name'].capitalize()}")
+            
+            print(f"Estadísticas:")
+            for s in pokemon_data['stats']:
+                print(f"\t{s['stat']['name'].capitalize()}: {s['base_stat']}")
+            
+            print("¿Quieres guardar información?")
+            opcion = input("Ingrese 'si' para guardar: ")
+            if opcion.lower() == "si":
+                guardar_menu(pokemon_data)
+
+        except KeyError:
+            print(f"No se encontró el Pokémon {pokemon_name.capitalize()} o los datos están incompletos.")
+    else:
+        print(f"No se encontró el Pokémon {pokemon_name.capitalize()} o se produjo un error en la solicitud.")
+
+def cargar_desde_txt(nombre_archivo):
+    try:
+        with open(nombre_archivo, "r") as archivo:
+            # Leer los datos del archivo de texto
+            lineas = archivo.readlines()
+            
+            # Crear un DataFrame con los datos
+            df = pd.DataFrame({"Datos": lineas})
+            
+            # Imprimir los datos
+            print("\nDatos encontrados:")
+            print(df)
+    except FileNotFoundError:
+        print(f"El archivo {nombre_archivo} no existe. Intente nuevamente.")
+
+def cargar_desde_excel(nombre_archivo):
+    try:
+        # Leer el archivo de Excel
+        df = pd.read_excel(nombre_archivo)
+        
+        # Imprimir los datos
+        print("\nDatos encontrados:")
+        print(df)
+    except FileNotFoundError:
+        print(f"El archivo {nombre_archivo} no existe. Intente nuevamente.")
+
+def cargar_desde_api():
+    print("\nIngrese el ID o nombre del Pokémon que desea consultar:")
+    consulta = input("Pokémon: ")
+    
+    # Realizar la consulta al API
+    response = requests.get(f"https://pokeapi.co/api/v2/pokemon/{consulta.lower()}")
+    
+    if response.status_code == 200:
+        # Obtener los datos del Pokémon de la respuesta del API
+        pokemon_data = response.json()
+        
+        # Crear un DataFrame con los datos del Pokémon
+        df = pd.DataFrame({
+            "Nombre": [pokemon_data["name"].capitalize()],
+            "ID": [pokemon_data["id"]],
+            "Tipo(s)": [", ".join([t["type"]["name"].capitalize() for t in pokemon_data["types"]])],
+            "Habilidades": [", ".join([h["ability"]["name"].capitalize() for h in pokemon_data["abilities"]])]
+        })
+        
+        # Imprimir los datos
+        print("\nDatos encontrados:")
+        print(df)
+    else:
+        print(f"No se pudo encontrar el Pokémon '{consulta}'. Intente nuevamente.")
+
+def guardar_menu(pokemon_data):
+    opcion = None
+    while opcion != "0":
+        # Mostrar las opciones disponibles para guardar los datos
+        print("¿Desea guardar los datos en un archivo?")
+        print("1 - Guardar en archivo de texto")
+        print("2 - Guardar en archivo de Excel")
+        print("0 - No guardar")
+        
+        # Solicitar al usuario que ingrese su opción
+        opcion = input("\nIngrese su opción: ")
+        
+        if opcion == "1":
+            # Si la opción es 1, llamar a la función guardar_txt() para guardar los datos en un archivo de texto
+            guardar_txt(pokemon_data)
+        elif opcion == "2":
+            # Si la opción es 2, llamar a la función guardar_en_excel() para guardar los datos en un archivo de Excel
+            guardar_en_excel(pokemon_data)
+        elif opcion == "0":
+            # Si la opción es 0, imprimir un mensaje indicando que los datos no han sido guardados
+            print("\nLos datos no han sido guardados.")
+        else:
+            # Si la opción no es válida, imprimir un mensaje de error
+            print("\nOpción inválida. Por favor, intente nuevamente.")
+
+def guardar_txt(pokemon_data):
+    opcion = None
+    while opcion not in ["1", "2", "0"]:
+        # Solicitar al usuario que ingrese su opción
+        print("¿Qué desea hacer con los datos?")
+        print("1 - Agregar al archivo existente")
+        print("2 - Crear un nuevo archivo")
+        print("0 - No guardar los datos")
+        opcion = input("\nIngrese su opción: ")
+    
+    if opcion == "1":
+        nombre_archivo = input ("\nIngresa el nombre del archivo: ")
+        nombre_archivo += ".txt"
+        # Abrir el archivo en modo 'a' (append) para añadir los datos al final del archivo
+        with open(nombre_archivo, 'a') as f:
+            # Escribir el nombre del Pokémon en el archivo
+            f.write(f"\nNombre: {pokemon_data['name'].capitalize()}\n")
+            
+            # Escribir el ID del Pokémon en el archivo
+            f.write(f"ID: {pokemon_data['id']}\n")
+            
+            # Escribir los tipos del Pokémon en el archivo
+            f.write("Tipo(s):\n")
+            for t in pokemon_data['types']:
+                f.write(f"\t{t['type']['name'].capitalize()}\n")
+            
+            # Escribir las habilidades del Pokémon en el archivo
+            f.write("Habilidades:\n")
+            for h in pokemon_data['abilities']:
+                f.write(f"\t{h['ability']['name'].capitalize()}\n")
+            
+            # Escribir las estadísticas del Pokémon en el archivo
+            f.write("Estadísticas:\n")
+            for s in pokemon_data['stats']:
+                f.write(f"\t{s['stat']['name'].capitalize()}: {s['base_stat']}\n")
+        
+        # Imprimir un mensaje indicando que los datos han sido guardados en el archivo
+        print(f"\nLos datos han sido agregados al archivo {nombre_archivo}.txt.")
+    elif opcion == "2":
+        archivo_nombre = input("\nIngrese el nombre del nuevo archivo: ")
+        # Abrir el archivo en modo 'w' (write) para crear un nuevo archivo
+        with open(f"{archivo_nombre}.txt", 'w') as f:
+            # Escribir el nombre del Pokémon en el archivo
+            f.write(f"\nNombre: {pokemon_data['name'].capitalize()}\n")
+            
+            # Escribir el ID del Pokémon en el archivo
+            f.write(f"ID: {pokemon_data['id']}\n")
+            
+            # Escribir los tipos del Pokémon en el archivo
+            f.write("Tipo(s):\n")
+            for t in pokemon_data['types']:
+                f.write(f"\t{t['type']['name'].capitalize()}\n")
+            
+            # Escribir las habilidades del Pokémon en el archivo
+            f.write("Habilidades:\n")
+            for h in pokemon_data['abilities']:
+                f.write(f"\t{h['ability']['name'].capitalize()}\n")
+            
+            # Escribir las estadísticas del Pokémon en el archivo
+            f.write("Estadísticas:\n")
+            for s in pokemon_data['stats']:
+                f.write(f"\t{s['stat']['name'].capitalize()}: {s['base_stat']}\n")
+        
+        # Imprimir un mensaje indicando que los datos han sido guardados en el nuevo archivo
+        print(f"\nLos datos han sido guardados en el archivo {archivo_nombre}.txt.")
+
+def guardar_en_excel(pokemon_data):
+    def crear_data_frame(pokemon_data):
+        # Crea un DataFrame con los datos del Pokémon
+        df = pd.DataFrame()
+        df.loc[0, "Nombre"] = pokemon_data["name"].capitalize()
+        df.loc[0, "ID"] = pokemon_data["id"]
+        df.loc[0, "Tipo(s)"] = ", ".join([t["type"]["name"].capitalize() for t in pokemon_data["types"]])
+        df.loc[0, "Habilidades"] = ", ".join([h["ability"]["name"].capitalize() for h in pokemon_data["abilities"]])
+        df.loc[0, "Estadísticas"] = ", ".join([f"{s['stat']['name'].capitalize()}: {s['base_stat']}" for s in pokemon_data["stats"]])
+        return df
+
+    # Muestra el menú de opciones
+    print("¿Qué desea hacer con los datos?")
+    print("1 - Agregar al archivo existente")
+    print("2 - Crear un nuevo archivo")
+    print("0 - No guardar los datos")
+    opcion = input("\nIngrese su opción: ")
+
+    if opcion == "1":
+        # Opción de agregar al archivo existente
+        archivo_existente = True
+        while archivo_existente:
+            nombre_archivo = input("\nIngrese el nombre del archivo Excel: ")
+            nombre_archivo += ".xlsx"
+            try:
+                # Intenta cargar el archivo existente
+                df = pd.read_excel(nombre_archivo)
+                nuevo_df = crear_data_frame(pokemon_data)
+                df = pd.concat([df, nuevo_df])
+                df.to_excel(nombre_archivo, index=False)
+                print(f"\nLos datos han sido agregados al archivo {nombre_archivo}.")
+                archivo_existente = False
+            except FileNotFoundError:
+                print("El archivo especificado no existe.")
+    elif opcion == "2":
+        # Opción de crear un nuevo archivo
+        nombre_archivo = input("\nIngrese el nombre del nuevo archivo Excel: ")
+        nombre_archivo += ".xlsx"
+        df = crear_data_frame(pokemon_data)
+        df.to_excel(nombre_archivo, index=False)
+        print(f"\nLos datos han sido guardados en el nuevo archivo {nombre_archivo}.")
+    elif opcion == "0":
+        # Opción de no guardar los datos
+        print("Los datos no serán guardados.")
+    else:
+        # Opción no válida
+        print("Opción no válida. Los datos no serán guardados.")
+
+def calcular_estadisticas_multiples_pokemon():
+    num_pokemon = int(input("\nIngrese el número de Pokémon que desea calcular estadísticas: "))
+
+    pokemon_list = []
+    for i in range(num_pokemon):
+        pokemon_name = input(f"Ingrese el nombre del Pokémon {i+1}: ")
+        pokemon_list.append(pokemon_name)
+
+    stats_dict = {
+        'HP': [],
+        'Ataque': [],
+        'Defensa': [],
+        'Ataque Especial': [],
+        'Defensa Especial': [],
+        'Velocidad': []
+    }
+
+    for pokemon_name in pokemon_list:
+        response = requests.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon_name}")
+
+        if response.status_code == 200:
+            try:
+                pokemon_data = response.json()
+
+                print(f"\n--- Estadísticas del Pokémon {pokemon_data['name'].capitalize()} ---")
+                stats = pokemon_data['stats']
+
+                # Obtener los valores de las estadísticas base
+                base_stats = [stat['base_stat'] for stat in stats]
+
+                # Actualizar las estadísticas en el diccionario
+                stats_dict['HP'].append(base_stats[0])
+                stats_dict['Ataque'].append(base_stats[1])
+                stats_dict['Defensa'].append(base_stats[2])
+                stats_dict['Ataque Especial'].append(base_stats[3])
+                stats_dict['Defensa Especial'].append(base_stats[4])
+                stats_dict['Velocidad'].append(base_stats[5])
+
+                print(f"Media: {statistics.mean(base_stats)}")
+                print(f"Mediana: {statistics.median(base_stats)}")
+                print(f"Moda: {statistics.mode(base_stats)}")
+
+            except KeyError:
+                print(f"No se encontró el Pokémon {pokemon_name.capitalize()} o los datos están incompletos.")
+        else:
+            print(f"No se encontró el Pokémon {pokemon_name.capitalize()} o se produjo un error en la solicitud.")
+
+    # Crear subplots para mostrar las gráficas
+    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(12, 8))
+    plt.subplots_adjust(wspace=0.3, hspace=0.4)
+
+    # Generar las gráficas en cada subplot
+    for i, (stat_name, stat_values) in enumerate(stats_dict.items()):
+        row = i // 3
+        col = i % 3
+        ax = axes[row, col]
+
+        ax.bar(pokemon_list, stat_values)
+        ax.set_xlabel('Pokémon')
+        ax.set_ylabel('Estadísticas')
+        ax.set_title(stat_name)
+
+    plt.show()
+
+    # Preguntar al usuario si desea guardar en un archivo existente o nuevo
+    opcion=input("¿desea guardar los datos?: ")
+    if opcion.lower() == "si":
+        guardar_menu(pokemon_data)
+    else:
+        print("Ingrese una opcion valida")
+    return
+
+
+
